@@ -3,32 +3,57 @@ import argparse
 
 def asignar_transacciones(transacciones_aproximadas, transacciones_sospechoso):
     asignaciones = dict()
+    usado = [False]* len(transacciones_aproximadas)
+
+    #ordeno por promedio 
+    transacciones_aproximadas.sort(key=lambda x: (x[0]+x[1])//2)
+
 
     for tiempo,error in transacciones_aproximadas:
-        indice = busqueda_recursiva( (tiempo - error, tiempo + error),transacciones_sospechoso, 0,len(transacciones_sospechoso)-1)
+        #busqueda binaria, con array de usados
+        indice = busqueda_recursiva( (tiempo - error, tiempo + error),transacciones_sospechoso, 0,len(transacciones_sospechoso)-1,usado)
         if indice < 0:
             return None
         
         asignaciones[transacciones_sospechoso[indice]] = (tiempo, error)
     
     return asignaciones
-
-
-
-def busqueda_recursiva( intervalo, transacciones , izq, der):
-    if(izq == der):
-        return izq
     
+def busqueda_recursiva( intervalo, transacciones , izq, der,usado):
     if(izq > der ):
         return -1
     
+    if(izq == der and usado[izq] != True):
+        usado[izq]= True
+        return izq
+    
     medio = (izq + der) // 2
-
+    
     if(transacciones[medio] in range(*intervalo)):
-        return medio 
+        #si el medio esta usado intenta a la izq, y en caso de no encontra busca en la parte derecha
+        if(usado[medio]):
+            valor = busqueda_recursiva( intervalo, transacciones , izq, medio - 1,usado)
+            if(valor == -1):
+                return busqueda_recursiva( intervalo, transacciones , medio +1 , der,usado)
+            else:
+                usado[valor] = True
+                return valor
+        
+        #si no esta usado, igualmente se fija si hay una transaccion menor a la que pueda relacionar
+        else:
+            if(transacciones[medio-1] in range(*intervalo)):
+                valor = busqueda_recursiva( intervalo, transacciones , izq, medio - 1,usado)
+                if(valor != -1):
+                    usado[valor] = True
+                    return valor
+                
+            usado[medio] = True
+            return medio 
     
     if(transacciones[medio] > intervalo[1]):
-        return busqueda_recursiva( intervalo, transacciones , izq, medio - 1)
+        return busqueda_recursiva( intervalo, transacciones , izq, medio - 1,usado)
+    
+    return busqueda_recursiva( intervalo, transacciones , medio +1 , der,usado)
     
     return busqueda_recursiva( intervalo, transacciones , medio +1 , der)
     
@@ -66,6 +91,7 @@ def asignar_transacciones_2(transacciones_aproximadas, transacciones_sospechoso)
     resultado = [(i, asignacion[i]) for i in range(n)]
     resultado.sort(key=lambda x: x[1])
     return resultado
+
 
 def parse_file(file_path):
     """
@@ -122,14 +148,12 @@ if __name__ == "__main__":
             print(f"Error al leer el archivo: {e}")
             sys.exit(1)
         
-    resultado = asignar_transacciones_2(trans_aprox, trans_sospechoso)
+    resultado = asignar_transacciones(trans_aprox, trans_sospechoso)
     
     if resultado is None:
         print("No es el sospechoso correcto")
     else:
-        #resultado = list(resultado.items())
-        #resultado.sort(key=lambda x: x[0])
-        #for ts_sospechoso, t_e in resultado:
-        #    print(f"{ts_sospechoso} --> {t_e[0]} ± {t_e[1]}")
-        for i, ts in resultado:
-            print(f"{ts} --> {trans_aprox[i][0]} ± {trans_aprox[i][1]}")
+        resultado = list(resultado.items())
+        resultado.sort(key=lambda x: x[0])
+        for ts_sospechoso, t_e in resultado:
+            print(f"{ts_sospechoso} --> {t_e[0]} ± {t_e[1]}")
